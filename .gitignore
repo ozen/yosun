@@ -1,0 +1,13 @@
+*.DS_Store
+*.pyc
+*~
+*.log
+*.egg-info/
+.idea
+dist
+pip-log.txt
+build
+venv
+bin
+include
+lib
