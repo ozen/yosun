@@ -1,4 +1,5 @@
 import logging
+from socket import timeout
 from collections import defaultdict
 from time import sleep
 from threading import Thread, Event
@@ -22,28 +23,23 @@ class Subscription(object):
         self._events = {}
         self._event_any = Event()
 
-        self._stopped_event = Event()
+        self._running = True
+        self._thread = Thread(target=self._consume)
+        self._thread.start()
+
+    def __del__(self):
         self._running = False
-        self._thread = None
-        self.start()
+        self._thread.join()
 
     def start(self):
         if not self._running:
-            # set run flag to true
             self._running = True
-            # clear stopped event
-            self._stopped_event.clear()
-            # create and start the thread
             self._thread = Thread(target=self._consume)
             self._thread.start()
 
     def stop(self):
         if self._running:
-            # set run flag to false
             self._running = False
-            # wait the thread to stop
-            self._stopped_event.wait()
-            # destroy the thread
             self._thread = None
 
     def on(self, routing_key, callback):
@@ -67,6 +63,9 @@ class Subscription(object):
         return self._event_any.wait(timeout)
 
     def _on_message(self, body, message):
+        if not self._running:
+            return
+
         routing_key = message.delivery_info['routing_key']
 
         if routing_key in self._events:
@@ -88,7 +87,7 @@ class Subscription(object):
             pass
 
     def _consume(self):
-        while True:
+        while self._running:
             try:
                 with connections[self._connection].acquire(block=True) as conn:
                     queue = Queue(exchange=self._exchange, routing_key=self._binding_key, channel=conn,
@@ -96,8 +95,11 @@ class Subscription(object):
 
                     with Consumer(conn, queue, callbacks=[self._on_message]):
                         try:
-                            while True:
-                                conn.drain_events()
+                            while self._running:
+                                try:
+                                    conn.drain_events(timeout=10)
+                                except timeout:
+                                    pass
                         except Exception as e:
                             logger.debug('Error when draining message queue: {0}'.format(e))
             except IOError as e:
@@ -107,17 +109,22 @@ class Subscription(object):
 
 
 class Client(object):
-    def __init__(self, exchange_name='amq_topic', **kwargs):
+    def __init__(self, exchange_name='amq.topic', **kwargs):
         self._exchange = Exchange(exchange_name, type='topic')
         self._connection = Connection(**kwargs)
         self._payload = {}
+        self._subscriptions = {}
 
     @property
     def payload(self):
         return self._payload
 
     def subscribe(self, binding_key, reconnect_timeout=10):
-        return Subscription(self._connection, self._exchange, binding_key, reconnect_timeout=reconnect_timeout)
+        if binding_key not in self._subscriptions:
+            self._subscriptions[binding_key] = Subscription(self._connection, self._exchange, binding_key,
+                                                            reconnect_timeout=reconnect_timeout)
+
+        return self._subscriptions[binding_key]
 
     def publish(self, routing_key, payload):
         if not isinstance(payload, dict):

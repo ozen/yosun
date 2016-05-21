@@ -5,6 +5,12 @@ Yosun is a simple pub/sub client built on top of [Kombu].
 It supports publishing and subscribing using a single topic exchange and a single connection.
 
 
+## Installation
+
+```
+pip install yosun
+```
+
 ## Creating Client Object
 
 ```python
@@ -109,4 +115,4 @@ sub.stop()
 sub.start()
 ```
 
-[Kombu]: http://kombu.readthedocs.io/
+[Kombu]: https://github.com/celery/kombu
