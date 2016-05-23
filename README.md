@@ -55,15 +55,15 @@ del yosun.payload['sender']
 Yosun's `subscribe` method creates and returns a Subscription object. Subscription creates a 
 queue and starts consuming it on a separate thread. 
 
-`Subscription.on` registers a callback for a certain routing key.
+`on` method registers a callback for a certain routing key.
  
-`Subscription.all` registers a callback for all routing keys.
+`all` method registers a callback for all routing keys.
 
 The signature of the callbacks must take two arguments: (body, message), which is the decoded message body and Kombu Message instance.
 
-`Subscription.wait` blocks until a message arrives with the given routing key.
+`wait` method blocks until a message arrives with the given routing key.
 
-`Subscription.wait_any` blocks until any message arrives.
+`wait_any` method blocks until any message arrives.
 
 ```python
 def on_rabbit(body, message):
@@ -115,6 +115,13 @@ sub.stop()
 # the registered callbacks are still there.
 # you can recreate the queue and start receiving messages again.
 sub.start()
+```
+
+If you don't keep the subscription in a variable, you can use `unsubscribe` method of Yosun object by binding key 
+to stop consuming.
+
+```python
+yosun.unsubscribe('animals.#')
 ```
 
 [Kombu]: https://github.com/celery/kombu

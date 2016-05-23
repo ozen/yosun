@@ -31,6 +31,10 @@ class Subscription(object):
         self._running = False
         self._thread.join()
 
+    @property
+    def is_alive(self):
+        return self._thread is not None and self._thread.is_alive()
+
     def start(self):
         if not self._running:
             self._running = True
@@ -38,9 +42,7 @@ class Subscription(object):
             self._thread.start()
 
     def stop(self):
-        if self._running:
-            self._running = False
-            self._thread = None
+        self._running = False
 
     def on(self, routing_key, callback):
         # register a callback for the given routing key
@@ -120,11 +122,15 @@ class Yosun(object):
         return self._payload
 
     def subscribe(self, binding_key, reconnect_timeout=10):
-        if binding_key not in self._subscriptions:
+        if binding_key not in self._subscriptions or not self._subscriptions[binding_key].is_alive():
             self._subscriptions[binding_key] = Subscription(self._connection, self._exchange, binding_key,
                                                             reconnect_timeout=reconnect_timeout)
 
         return self._subscriptions[binding_key]
+
+    def unsubscribe(self, binding_key):
+        if binding_key in self._subscriptions:
+            self._subscriptions[binding_key].stop()
 
     def publish(self, payload, **kwargs):
         if not isinstance(payload, dict):
