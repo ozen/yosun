@@ -1,9 +1,8 @@
 # Yosun
 
-Yosun is a simple pub/sub client built on top of [Kombu]. 
+Yosun is a simple pub/sub utility for [Kombu]. 
 
-It supports publishing and subscribing using a single topic exchange and a single connection.
-
+Give Yosun a connection and a topic exchange and it provides a nice interface for pub/sub. 
 
 ## Installation
 
@@ -11,17 +10,21 @@ It supports publishing and subscribing using a single topic exchange and a singl
 pip install yosun
 ```
 
-## Creating Client Object
+## Creating Yosun Object
 
 ```python
-from yosun import Client
-client = Client(hostname='amqp://guest:guest@localhost:5672//', exchange_name='my_topic_exchange')
+from kombu import Connection, Exchange
+from yosun import Yosun
+
+connection = Connection('amqp://guest:guest@localhost:5672//')
+exchange = Exchange(my_topic_exchange, type='topic')
+yosun = Yosun(connection, exchange)
 ```
 
 ## Publishing
 
 ```python
-client.publish('my.routing.key', {'hello': 'world'})
+yosun.publish({'hello': 'world'}, routing_key='my.routing.key')
 ```
 
 `publish` method blocks until message is sent. There is an alternative method with the same signature, 
@@ -29,27 +32,27 @@ client.publish('my.routing.key', {'hello': 'world'})
 
 ```python
 # this will return after creating a thread  
-client.publish_async('my.routing.key', {'hello': 'world'})  
+yosun.publish_async({'hello': 'world'}, routing_key='my.routing.key')  
 ```
 
 ### Make Permenant Additions to Payloads
 
-Client object has a dictionary property named `payload`. Content of `payload` will be added
+Yosun object has a dictionary property named `payload`. Content of `payload` will be added
 to the payload given to the publish method.
 
 ```python
-client.payload['sender'] = 'Yigit Ozen'
+yosun.payload['sender'] = 'Yigit Ozen'
 
 # will publish {'sender': 'Yigit Ozen', 'hello': 'world'}
-client.publish('my.routing.key', {'hello': 'world'})
+yosun.publish({'hello': 'world'}, routing_key='my.routing.key')
 
 # use del to stop adding a key-value pair to the payloads
-del client.payload['sender']
+del yosun.payload['sender']
 ```
 
 ## Subscribing
 
-Client's `subscribe` method creates and returns a Subscription object. Subscription creates a 
+Yosun's `subscribe` method creates and returns a Subscription object. Subscription creates a 
 queue and starts consuming it on a separate thread. 
 
 `Subscription.on` registers a callback for a certain routing key.
@@ -66,9 +69,8 @@ The signature of the callbacks must take two arguments: (body, message), which i
 def on_rabbit(body, message):
     print('Look, a rabbit!')
     print(body)
-    print(message)
     
-sub = client.subscribe('animals.#')
+sub = yosun.subscribe('animals.#')
 
 # from now on when a animals.rabbit message arrives, on_rabbit will be called
 sub.on('animals.rabbit', on_rabbit)
@@ -90,7 +92,7 @@ sub.wait_any()
 `on` and `all` methods return the Subscription object, so what you can chain the calls.
 
 ```python
-sub = client.subscribe('animals.#')
+sub = yosun.subscribe('animals.#')
             .on('animals.rabbit', on_rabbit)
             .on('animals.turtle', on_turtle)
             .all(on_animal)
@@ -103,7 +105,7 @@ You can destroy the queue and the thread without destroying the Subscription, an
 
 ```python
 # starts listening for the events
-sub = client.subscribe('animals.#')
+sub = yosun.subscribe('animals.#')
             .on('animals.rabbit', on_rabbit)
             .on('animals.turtle', on_turtle)
 

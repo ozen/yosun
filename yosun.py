@@ -3,7 +3,7 @@ from socket import timeout
 from collections import defaultdict
 from time import sleep
 from threading import Thread, Event
-from kombu import Connection, Exchange, Queue, Consumer
+from kombu import Queue, Consumer
 from kombu.pools import producers, connections
 from kombu.exceptions import MessageStateError
 
@@ -108,10 +108,10 @@ class Subscription(object):
                 sleep(self._reconnect_timeout)
 
 
-class Client(object):
-    def __init__(self, exchange_name='amq.topic', **kwargs):
-        self._exchange = Exchange(exchange_name, type='topic')
-        self._connection = Connection(**kwargs)
+class Yosun(object):
+    def __init__(self, connection, exchange):
+        self._connection = connection
+        self._exchange = exchange
         self._payload = {}
         self._subscriptions = {}
 
@@ -126,26 +126,29 @@ class Client(object):
 
         return self._subscriptions[binding_key]
 
-    def publish(self, routing_key, payload):
+    def publish(self, payload, **kwargs):
         if not isinstance(payload, dict):
             logger.error('payload parameter must be a dictionary')
             raise TypeError("payload parameter must be a dictionary")
 
         payload.update(self.payload)
+        kwargs['exchange'] = self._exchange
 
         with producers[self._connection].acquire(block=True) as producer:
             publish = self._connection.ensure(producer, producer.publish, max_retries=3)
             try:
-                publish(payload, routing_key=routing_key, exchange=self._exchange)
+                publish(payload, **kwargs)
             except OSError as e:
-                logger.error("Could not publish '{0}': {1}".format(routing_key, e))
+                if 'routing_key' in kwargs:
+                    logger.error("Could not publish '{0}': {1}".format(kwargs['routing_key'], e))
             else:
-                logger.debug("Published '{0}'".format(routing_key))
+                if 'routing_key' in kwargs:
+                    logger.debug("Published '{0}'".format(kwargs['routing_key']))
 
-    def publish_async(self, routing_key, payload):
+    def publish_async(self, payload, **kwargs):
         if not isinstance(payload, dict):
             logger.error('payload parameter must be a dictionary')
             raise TypeError("payload parameter must be a dictionary")
 
-        t = Thread(target=self.publish, args=(routing_key, payload))
+        t = Thread(target=self.publish, args=(payload,), kwargs=kwargs)
         t.start()
