@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='yosun',
     version='0.3.0',
-    description='Simple pub/sub client on top of Kombu',
+    description='Simple pub/sub utility for Kombu',
     author='Yigit Ozen',
     author_email='ozen@computer.org',
     url='http://ozen.github.io',
