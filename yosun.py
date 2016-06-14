@@ -118,6 +118,14 @@ class Yosun(object):
         self._subscriptions = {}
 
     @property
+    def connection(self):
+        return self._connection
+
+    @property
+    def exchange(self):
+        return self._exchange
+
+    @property
     def payload(self):
         return self._payload
 
