@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class Subscription(object):
-    def __init__(self, connection, exchange, binding_key, reconnect_timeout=10):
+    def __init__(self, connection, exchange, binding_key, key_prefix='', reconnect_timeout=10):
         self._connection = connection
         self._exchange = exchange
         self._binding_key = binding_key
+        self._key_prefix = key_prefix
         self._reconnect_timeout = reconnect_timeout
 
         self._callbacks = defaultdict(list)
@@ -46,6 +47,7 @@ class Subscription(object):
 
     def on(self, routing_key, callback):
         # register a callback for the given routing key
+        routing_key = '{0}{1}'.format(self._key_prefix, routing_key)
         self._callbacks[routing_key].append(callback)
         return self
 
@@ -56,6 +58,7 @@ class Subscription(object):
 
     def wait(self, routing_key, timeout=None):
         # register an event wait
+        routing_key = '{0}{1}'.format(self._key_prefix, routing_key)
         if routing_key not in self._events:
             self._events[routing_key] = Event()
 
@@ -89,10 +92,12 @@ class Subscription(object):
             pass
 
     def _consume(self):
+        routing_key = '{0}{1}'.format(self._key_prefix, self._binding_key)
+
         while self._running:
             try:
                 with connections[self._connection].acquire(block=True) as conn:
-                    queue = Queue(exchange=self._exchange, routing_key=self._binding_key, channel=conn,
+                    queue = Queue(exchange=self._exchange, routing_key=routing_key, channel=conn,
                                   durable=False, exclusive=True, auto_delete=True)
 
                     with Consumer(conn, queue, callbacks=[self._on_message]):
@@ -111,9 +116,10 @@ class Subscription(object):
 
 
 class Yosun(object):
-    def __init__(self, connection, exchange):
+    def __init__(self, connection, exchange, key_prefix=''):
         self._connection = connection
         self._exchange = exchange
+        self._key_prefix = key_prefix
         self._payload = {}
         self._subscriptions = {}
 
@@ -126,12 +132,19 @@ class Yosun(object):
         return self._exchange
 
     @property
+    def key_prefix(self):
+        return self._key_prefix
+
+    @property
     def payload(self):
         return self._payload
 
     def subscribe(self, binding_key, reconnect_timeout=10):
-        if binding_key not in self._subscriptions or not self._subscriptions[binding_key].is_alive():
+        if binding_key in self._subscriptions and not self._subscriptions[binding_key].is_alive():
+            self._subscriptions[binding_key].start()
+        elif binding_key not in self._subscriptions:
             self._subscriptions[binding_key] = Subscription(self._connection, self._exchange, binding_key,
+                                                            key_prefix=self._key_prefix,
                                                             reconnect_timeout=reconnect_timeout)
 
         return self._subscriptions[binding_key]
@@ -140,29 +153,32 @@ class Yosun(object):
         if binding_key in self._subscriptions:
             self._subscriptions[binding_key].stop()
 
-    def publish(self, payload, **kwargs):
-        if not isinstance(payload, dict):
+    def publish(self, routing_key, payload=None, **kwargs):
+        if payload is None:
+            payload = {}
+        elif not isinstance(payload, dict):
             logger.error('payload parameter must be a dictionary')
             raise TypeError("payload parameter must be a dictionary")
 
         payload.update(self.payload)
         kwargs['exchange'] = self._exchange
+        kwargs['routing_key'] = '{0}{1}'.format(self._key_prefix, routing_key)
 
         with producers[self._connection].acquire(block=True) as producer:
             publish = self._connection.ensure(producer, producer.publish, max_retries=3)
             try:
                 publish(payload, **kwargs)
             except OSError as e:
-                if 'routing_key' in kwargs:
-                    logger.error("Could not publish '{0}': {1}".format(kwargs['routing_key'], e))
+                logger.error("Could not publish '{0}': {1}".format(kwargs['routing_key'], e))
             else:
-                if 'routing_key' in kwargs:
-                    logger.debug("Published '{0}'".format(kwargs['routing_key']))
+                logger.debug("Published '{0}'".format(kwargs['routing_key']))
 
-    def publish_async(self, payload, **kwargs):
-        if not isinstance(payload, dict):
+    def publish_async(self, routing_key, payload=None, **kwargs):
+        if payload is None:
+            payload = {}
+        elif not isinstance(payload, dict):
             logger.error('payload parameter must be a dictionary')
             raise TypeError("payload parameter must be a dictionary")
 
-        t = Thread(target=self.publish, args=(payload,), kwargs=kwargs)
+        t = Thread(target=self.publish, args=(routing_key, payload), kwargs=kwargs)
         t.start()

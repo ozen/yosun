@@ -18,13 +18,22 @@ from yosun import Yosun
 
 connection = Connection('amqp://guest:guest@localhost:5672//')
 exchange = Exchange(my_topic_exchange, type='topic')
+
 yosun = Yosun(connection, exchange)
 ```
 
 ## Publishing
 
+Publish method takes routing key and payload parameters:
+
 ```python
-yosun.publish({'hello': 'world'}, routing_key='my.routing.key')
+yosun.publish('my.routing.key', {'hello': 'world'})
+```
+
+You can omit the payload which defaults to empty dictionary.
+
+```python
+yosun.publish('my.routing.key')
 ```
 
 `publish` method blocks until message is sent. There is an alternative method with the same signature, 
@@ -32,7 +41,7 @@ yosun.publish({'hello': 'world'}, routing_key='my.routing.key')
 
 ```python
 # this will return after creating a thread  
-yosun.publish_async({'hello': 'world'}, routing_key='my.routing.key')  
+yosun.publish_async('my.routing.key', {'hello': 'world'})  
 ```
 
 ### Make Permenant Additions to Payloads
@@ -43,8 +52,12 @@ to the payload given to the publish method.
 ```python
 yosun.payload['sender'] = 'Yigit Ozen'
 
-# will publish {'sender': 'Yigit Ozen', 'hello': 'world'}
-yosun.publish({'hello': 'world'}, routing_key='my.routing.key')
+# this will publish {'sender': 'Yigit Ozen', 'hello': 'world'}
+yosun.publish('my.routing.key', {'hello': 'world'})
+
+# sender will still be added if you omit the payload parameter. 
+# this will publish {'sender': 'Yigit Ozen'}
+yosun.publish({'my.routing.key')
 
 # use del to stop adding a key-value pair to the payloads
 del yosun.payload['sender']
@@ -123,5 +136,26 @@ to stop consuming.
 ```python
 yosun.unsubscribe('animals.#')
 ```
+
+## Prefixing Routing Keys
+
+You can pass a key prefix when initializing Yosun object, which will be automatically prefixed all routing keys 
+when subscribing and publishing. If you use Yosun object to pub/sub in a specific namespace, this will save you 
+from adding the prefix manually for all pub/sub calls.
+
+```python
+yosun = Yosun(connection, exchange, key_prefix='my.namespace.')
+
+# this will actually subscribe to 'my.namespace.animals.#'
+yosun.subscribe('animals.#')
+
+# on_rabbit will be called for messages with the key 'my.namespace.animals.rabbit'
+yosun.on('animals.rabbit', on_rabbit)
+
+# this will publish the message with the key 'my.namespace.my.routing.key'
+yosun.publish({'my.routing.key', 'hello': 'world'})
+```
+
+
 
 [Kombu]: https://github.com/celery/kombu
