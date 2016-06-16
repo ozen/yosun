@@ -147,10 +147,10 @@ from adding the prefix manually for all pub/sub calls.
 yosun = Yosun(connection, exchange, key_prefix='my.namespace.')
 
 # this will actually subscribe to 'my.namespace.animals.#'
-yosun.subscribe('animals.#')
+sub = yosun.subscribe('animals.#')
 
 # on_rabbit will be called for messages with the key 'my.namespace.animals.rabbit'
-yosun.on('animals.rabbit', on_rabbit)
+sub.on('animals.rabbit', on_rabbit)
 
 # this will publish the message with the key 'my.namespace.my.routing.key'
 yosun.publish({'my.routing.key', 'hello': 'world'})
