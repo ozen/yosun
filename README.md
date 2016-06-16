@@ -17,7 +17,7 @@ from kombu import Connection, Exchange
 from yosun import Yosun
 
 connection = Connection('amqp://guest:guest@localhost:5672//')
-exchange = Exchange(my_topic_exchange, type='topic')
+exchange = Exchange('my_topic_exchange', type='topic')
 
 yosun = Yosun(connection, exchange)
 ```
@@ -30,18 +30,18 @@ Publish method takes routing key and payload parameters:
 yosun.publish('my.routing.key', {'hello': 'world'})
 ```
 
-You can omit the payload which defaults to empty dictionary.
+You can omit the payload which defaults to an empty dictionary.
 
 ```python
 yosun.publish('my.routing.key')
 ```
 
-`publish` method blocks until message is sent. There is an alternative method with the same signature, 
-`publish_async`, which creates a thread that will send the message and returns immediately.
+`publish` method by default blocks the execution until message is sent. You can add `block=False` parameter to make 
+publish return immediately, and message will be sent in a background thread.
 
 ```python
-# this will return after creating a thread  
-yosun.publish_async('my.routing.key', {'hello': 'world'})  
+# this will return after creating a thread that will send the message
+yosun.publish('my.routing.key', {'hello': 'world'}, block=False)  
 ```
 
 ### Make Permenant Additions to Payloads
@@ -155,7 +155,6 @@ yosun.on('animals.rabbit', on_rabbit)
 # this will publish the message with the key 'my.namespace.my.routing.key'
 yosun.publish({'my.routing.key', 'hello': 'world'})
 ```
-
 
 
 [Kombu]: https://github.com/celery/kombu

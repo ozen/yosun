@@ -153,13 +153,7 @@ class Yosun(object):
         if binding_key in self._subscriptions:
             self._subscriptions[binding_key].stop()
 
-    def publish(self, routing_key, payload=None, **kwargs):
-        if payload is None:
-            payload = {}
-        elif not isinstance(payload, dict):
-            logger.error('payload parameter must be a dictionary')
-            raise TypeError("payload parameter must be a dictionary")
-
+    def _publish(self, routing_key, payload, **kwargs):
         payload.update(self.payload)
         kwargs['exchange'] = self._exchange
         kwargs['routing_key'] = '{0}{1}'.format(self._key_prefix, routing_key)
@@ -173,12 +167,15 @@ class Yosun(object):
             else:
                 logger.debug("Published '{0}'".format(kwargs['routing_key']))
 
-    def publish_async(self, routing_key, payload=None, **kwargs):
+    def publish(self, routing_key, payload=None, block=True, **kwargs):
         if payload is None:
             payload = {}
         elif not isinstance(payload, dict):
             logger.error('payload parameter must be a dictionary')
             raise TypeError("payload parameter must be a dictionary")
 
-        t = Thread(target=self.publish, args=(routing_key, payload), kwargs=kwargs)
-        t.start()
+        if block:
+            self._publish(routing_key, payload, **kwargs)
+        else:
+            t = Thread(target=self._publish, args=(routing_key, payload), kwargs=kwargs)
+            t.start()
