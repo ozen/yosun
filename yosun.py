@@ -1,4 +1,5 @@
 import logging
+from inspect import isfunction
 from socket import timeout
 from collections import defaultdict
 from time import sleep
@@ -11,6 +12,27 @@ from kombu.exceptions import MessageStateError
 logger = logging.getLogger(__name__)
 
 
+class Handler(object):
+    def __init__(self, callback, on_exception=None):
+        self._callback = callback
+
+        if on_exception is not None:
+            if not isfunction(on_exception):
+                raise ValueError('on_exception must be a function')
+            self._on_exception = on_exception
+        else:
+            self._on_exception = self._default_on_exception
+
+    def __call__(self, *args, **kwargs):
+        try:
+            self._callback(*args, **kwargs)
+        except Exception as e:
+            self._on_exception(e)
+
+    def _default_on_exception(self, exception):
+        raise exception
+
+
 class Subscription(object):
     def __init__(self, connection, exchange, binding_key, key_prefix='', reconnect_timeout=10):
         self._connection = connection
@@ -19,14 +41,14 @@ class Subscription(object):
         self._key_prefix = key_prefix
         self._reconnect_timeout = reconnect_timeout
 
-        self._callbacks = defaultdict(list)
-        self._callbacks_for_all = []
+        self._handlers = defaultdict(list)
+        self._handlers_for_all = []
         self._events = {}
         self._event_any = Event()
+        self._running = False
+        self._thread = None
 
-        self._running = True
-        self._thread = Thread(target=self._consume)
-        self._thread.start()
+        self.start()
 
     def __del__(self):
         self._running = False
@@ -45,15 +67,15 @@ class Subscription(object):
     def stop(self):
         self._running = False
 
-    def on(self, routing_key, callback):
+    def on(self, routing_key, callback, on_exception=None):
         # register a callback for the given routing key
         routing_key = '{0}{1}'.format(self._key_prefix, routing_key)
-        self._callbacks[routing_key].append(callback)
+        self._handlers[routing_key].append(Handler(callback, on_exception))
         return self
 
-    def all(self, callback):
+    def all(self, callback, on_exception=None):
         # register a callback for all routing keys
-        self._callbacks_for_all.append(callback)
+        self._handlers_for_all.append(Handler(callback, on_exception))
         return self
 
     def wait(self, routing_key, timeout=None):
@@ -80,11 +102,9 @@ class Subscription(object):
         self._event_any.set()
         self._event_any.clear()
 
-        for callback in self._callbacks[routing_key]:
-            callback(body, message)
+        [handler(body, message) for handler in self._handlers[routing_key]]
 
-        for callback in self._callbacks_for_all:
-            callback(body, message)
+        [handler(body, message) for handler in self._handlers_for_all]
 
         try:
             message.ack()
