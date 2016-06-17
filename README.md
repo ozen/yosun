@@ -111,7 +111,7 @@ sub = yosun.subscribe('animals.#')
             .all(on_animal)
 ```
 
-## Exception Handling
+#### Exception Handling
 
 You can pass an exception handler to 'on' and 'all' methods. Yosun will call your handler with the exception 
 if there an exception is raised from on of your callbacks.  
