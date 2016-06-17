@@ -177,13 +177,14 @@ class Yosun(object):
     def payload(self):
         return self._payload
 
-    def subscribe(self, binding_key, reconnect_timeout=10):
+    def subscribe(self, binding_key, reconnect_timeout=10, on_exception=None):
         if binding_key in self._subscriptions and not self._subscriptions[binding_key].is_alive():
             self._subscriptions[binding_key].start()
         elif binding_key not in self._subscriptions:
             self._subscriptions[binding_key] = Subscription(self._connection, self._exchange, binding_key,
                                                             key_prefix=self._key_prefix,
-                                                            reconnect_timeout=reconnect_timeout)
+                                                            reconnect_timeout=reconnect_timeout,
+                                                            on_exception=on_exception)
 
         return self._subscriptions[binding_key]
 

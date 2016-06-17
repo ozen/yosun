@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='yosun',
-    version='0.6.1',
+    version='0.6.2',
     description='Simple pub/sub utility for Kombu',
     author='Yigit Ozen',
     author_email='ozen@computer.org',
