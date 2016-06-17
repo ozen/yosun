@@ -44,7 +44,7 @@ publish return immediately, and message will be sent in a background thread.
 yosun.publish('my.routing.key', {'hello': 'world'}, block=False)  
 ```
 
-### Make Permenant Additions to Payloads
+#### Make Permenant Additions to Payloads
 
 Yosun object has a dictionary property named `payload`. Content of `payload` will be added
 to the payload given to the publish method.
@@ -111,7 +111,23 @@ sub = yosun.subscribe('animals.#')
             .all(on_animal)
 ```
 
-### Stop and Restart Consuming
+## Exception Handling
+
+You can pass an exception handler to 'on' and 'all' methods. Yosun will call your handler with the exception 
+if there an exception is raised from on of your callbacks.  
+For example you can use this to register loggers.
+
+```python
+def on_exception(exception):
+    logger.error('Exception occurred when handling MQ message: {0}'.format(exception))
+    
+sub = yosun.subscribe('animals.#')
+
+sub.on('animals.rabbit', on_rabbit, on_exception=on_exception)
+sub.all(on_animal, on_exception=on_exception) 
+```
+
+## Stop and Restart Consuming
 
 Subscription creates a queue and starts a thread that consumes it upon creation.
 You can destroy the queue and the thread without destroying the Subscription, and you can recreate them later.
