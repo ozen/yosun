@@ -113,18 +113,34 @@ sub = yosun.subscribe('animals.#')
 
 #### Exception Handling
 
-You can pass an exception handler to 'on' and 'all' methods. Yosun will call your handler with the exception 
-if there an exception is raised from on of your callbacks.  
+You can pass an exception handler to `on` and `all` methods. Yosun will call your handler with the exception 
+when an exception is raised from on of your callbacks instead of raising it.  
 For example you can use this to register loggers.
 
 ```python
-def on_exception(exception):
+def log_mq_exception(exception):
     logger.error('Exception occurred when handling MQ message: {0}'.format(exception))
     
 sub = yosun.subscribe('animals.#')
 
-sub.on('animals.rabbit', on_rabbit, on_exception=on_exception)
-sub.all(on_animal, on_exception=on_exception) 
+sub.on('animals.rabbit', on_rabbit, on_exception=log_mq_exception)
+sub.all(on_animal, on_exception=log_mq_exception) 
+```
+
+You can also pass an exception handler to `sub` method in the same way. 
+It applies to all callbacks under that subscription. 
+It is called **after** the handler given to `on` or `all` method.
+
+The following code works exactly like the one above.
+
+```python
+def log_mq_exception(exception):
+    logger.error('Exception occurred when handling MQ message: {0}'.format(exception))
+    
+sub = yosun.subscribe('animals.#', on_exception=log_mq_exception)
+
+sub.on('animals.rabbit', on_rabbit)
+sub.all(on_animal) 
 ```
 
 ## Stop and Restart Consuming

@@ -34,12 +34,19 @@ class Handler(object):
 
 
 class Subscription(object):
-    def __init__(self, connection, exchange, binding_key, key_prefix='', reconnect_timeout=10):
+    def __init__(self, connection, exchange, binding_key, key_prefix='', reconnect_timeout=10, on_exception=None):
         self._connection = connection
         self._exchange = exchange
         self._binding_key = binding_key
         self._key_prefix = key_prefix
         self._reconnect_timeout = reconnect_timeout
+
+        if on_exception is not None:
+            if not isfunction(on_exception):
+                raise ValueError('on_exception must be a function')
+            self._on_exception = on_exception
+        else:
+            self._on_exception = self._default_on_exception
 
         self._handlers = defaultdict(list)
         self._handlers_for_all = []
@@ -53,6 +60,9 @@ class Subscription(object):
     def __del__(self):
         self._running = False
         self._thread.join()
+
+    def _default_on_exception(self, exception):
+        raise exception
 
     @property
     def is_alive(self):
@@ -102,9 +112,17 @@ class Subscription(object):
         self._event_any.set()
         self._event_any.clear()
 
-        [handler(body, message) for handler in self._handlers[routing_key]]
+        for handler in self._handlers[routing_key]:
+            try:
+                handler(body, message)
+            except Exception as e:
+                self._on_exception(e)
 
-        [handler(body, message) for handler in self._handlers_for_all]
+        for handler in self._handlers_for_all:
+            try:
+                handler(body, message)
+            except Exception as e:
+                self._on_exception(e)
 
         try:
             message.ack()
