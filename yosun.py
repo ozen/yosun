@@ -1,5 +1,5 @@
 import logging
-from inspect import isfunction
+from inspect import isroutine
 from socket import timeout
 from collections import defaultdict
 from time import sleep
@@ -17,8 +17,8 @@ class Handler(object):
         self._callback = callback
 
         if on_exception is not None:
-            if not isfunction(on_exception):
-                raise ValueError('on_exception must be a function')
+            if not isroutine(on_exception):
+                raise ValueError('on_exception must be a function or method')
             self._on_exception = on_exception
         else:
             self._on_exception = self._default_on_exception
@@ -42,8 +42,8 @@ class Subscription(object):
         self._reconnect_timeout = reconnect_timeout
 
         if on_exception is not None:
-            if not isfunction(on_exception):
-                raise ValueError('on_exception must be a function')
+            if not isroutine(on_exception):
+                raise ValueError('on_exception must be a function or method')
             self._on_exception = on_exception
         else:
             self._on_exception = self._default_on_exception
@@ -59,7 +59,10 @@ class Subscription(object):
 
     def __del__(self):
         self._running = False
-        self._thread.join()
+        try:
+            self._thread.join()
+        except Exception as e:
+            pass
 
     def _default_on_exception(self, exception):
         raise exception
