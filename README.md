@@ -44,7 +44,7 @@ publish return immediately, and message will be sent in a background thread.
 yosun.publish('my.routing.key', {'hello': 'world'}, block=False)  
 ```
 
-#### Make Permenant Additions to Payloads
+#### Make Persistent Additions to Payloads
 
 Yosun object has a dictionary property named `payload`. Content of `payload` will be added
 to the payload given to the publish method.
