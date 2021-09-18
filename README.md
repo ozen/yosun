@@ -102,7 +102,7 @@ arrived = sub.wait('animals.rabbit', timeout=10)
 sub.wait_any()
 ```
 
-`on` and `all` methods return the Subscription object, so what you can chain the calls.
+`on` and `all` methods return the Subscription object, so that you can chain the calls.
 
 ```python
 sub = yosun.subscribe('animals.#')
